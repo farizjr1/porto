@@ -31,10 +31,10 @@ export type Project = {
   id: number;
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
   techStack: string;
   githubUrl: string;
-  liveUrl: string;
+  liveUrl?: string;
 };
 
 export const profile = {
@@ -149,29 +149,23 @@ export const defaultProjects: Project[] = [
     title: "Sistem Pelaporan Keuangan UMKM",
     description:
       "Merancang template laporan keuangan otomatis berbasis Excel untuk memudahkan UMKM dalam menyusun laporan bulanan dan tahunan dengan akurasi tinggi.",
-    imageUrl: "",
     techStack: "Microsoft Excel, Power Query, VBA",
     githubUrl: "https://github.com/farizjr1",
-    liveUrl: "",
   },
   {
     id: 2,
     title: "Dashboard Monitoring Arus Kas",
     description:
       "Membangun dashboard interaktif untuk monitoring arus kas real-time menggunakan Power BI yang terhubung langsung dengan data akuntansi perusahaan.",
-    imageUrl: "",
     techStack: "Power BI, Excel, SQL",
     githubUrl: "https://github.com/farizjr1",
-    liveUrl: "",
   },
   {
     id: 3,
     title: "Audit Internal & Compliance Report",
     description:
       "Menyusun prosedur audit internal dan laporan kepatuhan yang membantu perusahaan mencapai standar pelaporan yang lebih baik dan transparan.",
-    imageUrl: "",
     techStack: "SAP, Accurate, Excel",
     githubUrl: "https://github.com/farizjr1",
-    liveUrl: "",
   },
 ];
