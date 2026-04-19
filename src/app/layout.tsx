@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
   title: "Portofolio Akuntansi Fariz",
@@ -14,7 +16,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <Navbar />
+        <main style={{ paddingBottom: "calc(var(--nav-height) + 1rem)" }}>
+          {children}
+        </main>
+        <BottomNav />
+      </body>
     </html>
   );
 }
