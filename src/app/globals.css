@@ -1,6 +1,14 @@
 :root {
-  --background: #f8faff;
-  --foreground: #1f2b3d;
+  --background: #0d0d0d;
+  --surface: #181818;
+  --surface2: #222222;
+  --foreground: #ffffff;
+  --muted: #aaaaaa;
+  --accent: #f5c518;
+  --accent-glow: rgba(245, 197, 24, 0.35);
+  --border: rgba(245, 197, 24, 0.4);
+  --radius: 1rem;
+  --nav-height: 68px;
 }
 
 html,
