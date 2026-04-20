@@ -70,16 +70,24 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
-    const storedToken = window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
+    const restoreStoredSession = async () => {
+      const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
+      const storedToken =
+        window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
 
-    if (storedToken) {
+      if (!storedToken) {
+        setAuthReady(true);
+        return;
+      }
+
+      await Promise.resolve();
       setEmail(storedUser);
       setAccessToken(storedToken);
       setIsAuthenticated(true);
-    }
+      setAuthReady(true);
+    };
 
-    setAuthReady(true);
+    void restoreStoredSession();
   }, []);
 
   const requestHeaders = useMemo(() => {
