@@ -1,6 +1,7 @@
 import { Experience, Profile, Skill } from "@/lib/portfolioData";
 
-const OWNER_KEY = process.env.OWNER_DASHBOARD_KEY?.trim() ?? "";
+const OWNER_KEY =
+  process.env.OWNER_DASHBOARD_KEY?.trim() ?? process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
 
 const normalize = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 

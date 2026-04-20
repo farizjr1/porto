@@ -190,7 +190,9 @@ export default function DashboardPage() {
 
       <form onSubmit={saveKey} className={styles.card}>
         <h2>Owner Access Key</h2>
-        <p className={styles.help}>Isi key dari environment variable OWNER_DASHBOARD_KEY.</p>
+        <p className={styles.help}>
+          Isi key dari environment variable SUPABASE_SERVICE_ROLE_KEY (atau OWNER_DASHBOARD_KEY).
+        </p>
         <input
           type="password"
           value={ownerKey}
