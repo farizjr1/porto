@@ -1,34 +1,46 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import styles from "./BottomNav.module.css";
 
 const navItems = [
   { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Portfolio", href: "/portfolio" },
-  { label: "Blog", href: "/blog" },
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "CV", href: "/#cv" },
+  { label: "Skill", href: "/#skill" },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const syncHash = () => {
+      setHash(window.location.hash);
+    };
+
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
 
   return (
     <nav className={styles.nav}>
       <div className={styles.inner}>
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const [itemPath, itemHash = ""] = item.href.split("#");
+          const isActivePath = pathname === itemPath;
+          const isActiveHash = itemHash ? hash === `#${itemHash}` : !hash;
+          const isActive = isActivePath && isActiveHash;
+
           return (
-            <Link
-              key={item.href}
+            <a
+              key={item.label}
               href={item.href}
               className={`${styles.item} ${isActive ? styles.active : ""}`}
             >
-              <span className={styles.label}>{item.label}</span>
-              {isActive && <span className={styles.underline} />}
-            </Link>
+              {item.label}
+            </a>
           );
         })}
       </div>

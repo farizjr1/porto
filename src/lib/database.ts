@@ -1,142 +1,309 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { BlogPost, WorkExperience, defaultBlogPosts, defaultExperiences } from "@/lib/portfolioData";
+import { createClient } from "@supabase/supabase-js";
+import {
+  defaultPortfolioData,
+  generateAtsCv,
+  PortfolioData,
+  Profile,
+  Skill,
+  Experience,
+} from "@/lib/portfolioData";
 
-type PortfolioDatabase = {
-  blogPosts: BlogPost[];
-  experiences: WorkExperience[];
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const isSupabaseEnabled = Boolean(supabaseUrl && supabaseServiceKey);
+
+let fallbackStore: PortfolioData = {
+  profile: { ...defaultPortfolioData.profile },
+  skills: defaultPortfolioData.skills.map((item) => ({ ...item })),
+  experiences: defaultPortfolioData.experiences.map((item) => ({ ...item })),
 };
 
-type BlogPayload = {
-  title: string;
-  summary: string;
-  content: string;
+const normalizeText = (value: string) => value.trim();
+
+const toNumber = (value: unknown, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-type ExperiencePayload = {
-  role: string;
-  company: string;
-  period: string;
-  description: string;
-};
-
-const databasePath = path.join(process.cwd(), "src", "data", "portfolio-db.json");
-let writeQueue: Promise<unknown> = Promise.resolve();
-
-const initialDatabase: PortfolioDatabase = {
-  blogPosts: defaultBlogPosts,
-  experiences: defaultExperiences,
-};
-
-const ensureDatabaseFile = async () => {
-  try {
-    await fs.access(databasePath);
-  } catch {
-    await fs.mkdir(path.dirname(databasePath), { recursive: true });
-    await fs.writeFile(databasePath, JSON.stringify(initialDatabase, null, 2), "utf-8");
+const getSupabase = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null;
   }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 };
 
-const readDatabase = async (): Promise<PortfolioDatabase> => {
-  await ensureDatabaseFile();
-  const raw = await fs.readFile(databasePath, "utf-8");
-  const parsed = JSON.parse(raw) as Partial<PortfolioDatabase>;
+const normalizeProfile = (value: Partial<Profile>): Profile => ({
+  fullName: normalizeText(value.fullName ?? defaultPortfolioData.profile.fullName),
+  headline: normalizeText(value.headline ?? defaultPortfolioData.profile.headline),
+  bio: normalizeText(value.bio ?? defaultPortfolioData.profile.bio),
+  email: normalizeText(value.email ?? defaultPortfolioData.profile.email),
+  location: normalizeText(value.location ?? defaultPortfolioData.profile.location),
+  cvContent: normalizeText(value.cvContent ?? ""),
+});
+
+const normalizeSkills = (skills: Partial<Skill>[]): Skill[] =>
+  skills
+    .map((item, index) => ({
+      id: toNumber(item.id, index + 1),
+      name: normalizeText(item.name ?? ""),
+      level: normalizeText(item.level ?? "Intermediate"),
+      sortOrder: toNumber(item.sortOrder, index + 1),
+    }))
+    .filter((item) => item.name.length > 0)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((item, index) => ({ ...item, sortOrder: index + 1 }));
+
+const normalizeExperiences = (experiences: Partial<Experience>[]): Experience[] =>
+  experiences
+    .map((item, index) => ({
+      id: toNumber(item.id, index + 1),
+      role: normalizeText(item.role ?? ""),
+      company: normalizeText(item.company ?? ""),
+      period: normalizeText(item.period ?? ""),
+      description: normalizeText(item.description ?? ""),
+      sortOrder: toNumber(item.sortOrder, index + 1),
+    }))
+    .filter((item) => item.role.length > 0 && item.company.length > 0)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((item, index) => ({ ...item, sortOrder: index + 1 }));
+
+const ensureCvContent = (data: PortfolioData): PortfolioData => {
+  const cvContent = data.profile.cvContent || generateAtsCv(data);
 
   return {
-    blogPosts: parsed.blogPosts ?? initialDatabase.blogPosts,
-    experiences: parsed.experiences ?? initialDatabase.experiences,
+    ...data,
+    profile: {
+      ...data.profile,
+      cvContent,
+    },
   };
 };
 
-const writeDatabase = async (data: PortfolioDatabase) => {
-  await fs.writeFile(databasePath, JSON.stringify(data, null, 2), "utf-8");
-};
-
-const serializeWrite = <T>(operation: () => Promise<T>): Promise<T> => {
-  const run = writeQueue.then(operation, operation);
-  writeQueue = run.then(() => undefined, () => undefined);
-  return run;
-};
-
-const sanitizeText = (value: string) => value.trim();
-
-const nextId = (items: Array<{ id: number }>) =>
-  items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
-
-export const getBlogPosts = async () => {
-  const data = await readDatabase();
-  return data.blogPosts;
-};
-
-export const getExperiences = async () => {
-  const data = await readDatabase();
-  return data.experiences;
-};
-
-export const createBlogPost = async (payload: BlogPayload) => {
-  return serializeWrite(async () => {
-    const data = await readDatabase();
-    const blogPost: BlogPost = {
-      id: nextId(data.blogPosts),
-      title: sanitizeText(payload.title),
-      summary: sanitizeText(payload.summary),
-      content: sanitizeText(payload.content),
-      publishedAt: new Date().toISOString().slice(0, 10),
+export const getPortfolioData = async (): Promise<PortfolioData> => {
+  if (!isSupabaseEnabled) {
+    fallbackStore = ensureCvContent(fallbackStore);
+    return {
+      profile: { ...fallbackStore.profile },
+      skills: fallbackStore.skills.map((item) => ({ ...item })),
+      experiences: fallbackStore.experiences.map((item) => ({ ...item })),
     };
+  }
 
-    const updated = {
-      ...data,
-      blogPosts: [blogPost, ...data.blogPosts],
-    };
-    await writeDatabase(updated);
-    return blogPost;
-  });
-};
+  const supabase = getSupabase();
 
-export const updateBlogPost = async (id: number, payload: BlogPayload) => {
-  return serializeWrite(async () => {
-    const data = await readDatabase();
-    const index = data.blogPosts.findIndex((item) => item.id === id);
+  if (!supabase) {
+    fallbackStore = ensureCvContent(fallbackStore);
+    return fallbackStore;
+  }
 
-    if (index < 0) {
-      return null;
+  try {
+    const [profileResult, skillResult, experienceResult] = await Promise.all([
+      supabase.from("portfolio_profile").select("*").eq("id", 1).maybeSingle(),
+      supabase.from("portfolio_skills").select("*").order("sort_order", { ascending: true }),
+      supabase
+        .from("portfolio_experiences")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    if (profileResult.error || skillResult.error || experienceResult.error) {
+      throw new Error("Failed to fetch Supabase data");
     }
 
-    const updatedPost: BlogPost = {
-      ...data.blogPosts[index],
-      title: sanitizeText(payload.title),
-      summary: sanitizeText(payload.summary),
-      content: sanitizeText(payload.content),
-    };
-
-    const updatedBlogPosts = [...data.blogPosts];
-    updatedBlogPosts[index] = updatedPost;
-
-    await writeDatabase({
-      ...data,
-      blogPosts: updatedBlogPosts,
+    const profile = normalizeProfile({
+      fullName: profileResult.data?.full_name,
+      headline: profileResult.data?.headline,
+      bio: profileResult.data?.bio,
+      email: profileResult.data?.email,
+      location: profileResult.data?.location,
+      cvContent: profileResult.data?.cv_content,
     });
 
-    return updatedPost;
-  });
+    const skills = normalizeSkills(
+      (skillResult.data ?? []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        level: item.level,
+        sortOrder: item.sort_order,
+      })),
+    );
+
+    const experiences = normalizeExperiences(
+      (experienceResult.data ?? []).map((item) => ({
+        id: item.id,
+        role: item.role,
+        company: item.company,
+        period: item.period,
+        description: item.description,
+        sortOrder: item.sort_order,
+      })),
+    );
+
+    const portfolioData = ensureCvContent({ profile, skills, experiences });
+    fallbackStore = portfolioData;
+
+    return portfolioData;
+  } catch {
+    fallbackStore = ensureCvContent(fallbackStore);
+    return {
+      profile: { ...fallbackStore.profile },
+      skills: fallbackStore.skills.map((item) => ({ ...item })),
+      experiences: fallbackStore.experiences.map((item) => ({ ...item })),
+    };
+  }
 };
 
-export const createExperience = async (payload: ExperiencePayload) => {
-  return serializeWrite(async () => {
-    const data = await readDatabase();
-    const experience: WorkExperience = {
-      id: nextId(data.experiences),
-      role: sanitizeText(payload.role),
-      company: sanitizeText(payload.company),
-      period: sanitizeText(payload.period),
-      description: sanitizeText(payload.description),
-    };
+export const updateProfile = async (profileInput: Profile) => {
+  const profile = normalizeProfile(profileInput);
+  fallbackStore = {
+    ...fallbackStore,
+    profile,
+  };
 
-    await writeDatabase({
-      ...data,
-      experiences: [experience, ...data.experiences],
+  if (!isSupabaseEnabled) {
+    return profile;
+  }
+
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return profile;
+  }
+
+  try {
+    await supabase.from("portfolio_profile").upsert({
+      id: 1,
+      full_name: profile.fullName,
+      headline: profile.headline,
+      bio: profile.bio,
+      email: profile.email,
+      location: profile.location,
+      cv_content: profile.cvContent,
     });
+  } catch {
+    return profile;
+  }
 
-    return experience;
+  return profile;
+};
+
+export const replaceSkills = async (skillsInput: Skill[]) => {
+  const skills = normalizeSkills(skillsInput);
+  fallbackStore = {
+    ...fallbackStore,
+    skills,
+  };
+
+  if (!isSupabaseEnabled) {
+    return skills;
+  }
+
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return skills;
+  }
+
+  try {
+    const existingSkills = await supabase.from("portfolio_skills").select("id");
+
+    if (existingSkills.data && existingSkills.data.length > 0) {
+      await supabase
+        .from("portfolio_skills")
+        .delete()
+        .in(
+          "id",
+          existingSkills.data.map((item) => item.id),
+        );
+    }
+
+    if (skills.length > 0) {
+      await supabase.from("portfolio_skills").insert(
+        skills.map((item) => ({
+          name: item.name,
+          level: item.level,
+          sort_order: item.sortOrder,
+        })),
+      );
+    }
+  } catch {
+    return skills;
+  }
+
+  return skills;
+};
+
+export const replaceExperiences = async (experiencesInput: Experience[]) => {
+  const experiences = normalizeExperiences(experiencesInput);
+  fallbackStore = {
+    ...fallbackStore,
+    experiences,
+  };
+
+  if (!isSupabaseEnabled) {
+    return experiences;
+  }
+
+  const supabase = getSupabase();
+
+  if (!supabase) {
+    return experiences;
+  }
+
+  try {
+    const existingExperiences = await supabase.from("portfolio_experiences").select("id");
+
+    if (existingExperiences.data && existingExperiences.data.length > 0) {
+      await supabase
+        .from("portfolio_experiences")
+        .delete()
+        .in(
+          "id",
+          existingExperiences.data.map((item) => item.id),
+        );
+    }
+
+    if (experiences.length > 0) {
+      await supabase.from("portfolio_experiences").insert(
+        experiences.map((item) => ({
+          role: item.role,
+          company: item.company,
+          period: item.period,
+          description: item.description,
+          sort_order: item.sortOrder,
+        })),
+      );
+    }
+  } catch {
+    return experiences;
+  }
+
+  return experiences;
+};
+
+export const regenerateCv = async () => {
+  const data = await getPortfolioData();
+  const cvContent = generateAtsCv(data);
+
+  const profile = await updateProfile({
+    ...data.profile,
+    cvContent,
   });
+
+  return profile.cvContent;
+};
+
+export const updateCvContent = async (cvContentInput: string) => {
+  const data = await getPortfolioData();
+  const cvContent = normalizeText(cvContentInput);
+
+  const profile = await updateProfile({
+    ...data.profile,
+    cvContent,
+  });
+
+  return profile.cvContent;
 };
