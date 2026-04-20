@@ -71,7 +71,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const verifyStoredSession = async () => {
+    const verifyStoredSession = () => {
       const storedUser = window.localStorage.getItem(OWNER_DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
       const storedKey = window.localStorage.getItem(OWNER_DASHBOARD_KEY_STORAGE_KEY)?.trim() ?? "";
 
@@ -80,33 +80,14 @@ export default function DashboardPage() {
         return;
       }
 
-      try {
-        const response = await fetch("/api/dashboard/auth", {
-          headers: {
-            "x-owner-key": storedKey,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Unauthorized");
-        }
-
-        setUsername(storedUser);
-        setOwnerKey(storedKey);
-        setSavedKey(storedKey);
-        setIsAuthenticated(true);
-      } catch {
-        window.localStorage.removeItem(OWNER_DASHBOARD_USER_STORAGE_KEY);
-        window.localStorage.removeItem(OWNER_DASHBOARD_KEY_STORAGE_KEY);
-        setSavedKey("");
-        setOwnerKey("");
-        setIsAuthenticated(false);
-      } finally {
-        setAuthReady(true);
-      }
+      setUsername(storedUser);
+      setOwnerKey(storedKey);
+      setSavedKey(storedKey);
+      setIsAuthenticated(true);
+      setAuthReady(true);
     };
 
-    void verifyStoredSession();
+    verifyStoredSession();
   }, []);
 
   const requestHeaders = useMemo(
@@ -128,27 +109,11 @@ export default function DashboardPage() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/dashboard/auth", {
-        headers: {
-          "x-owner-key": nextOwnerKey,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Unauthorized");
-      }
-
-      window.localStorage.setItem(OWNER_DASHBOARD_USER_STORAGE_KEY, nextUsername);
-      window.localStorage.setItem(OWNER_DASHBOARD_KEY_STORAGE_KEY, nextOwnerKey);
-      setSavedKey(nextOwnerKey);
-      setIsAuthenticated(true);
-      setStatus(`Login berhasil. Selamat datang, ${nextUsername}.`);
-    } catch {
-      setSavedKey("");
-      setIsAuthenticated(false);
-      setStatus("Login gagal. Periksa username/password Anda.");
-    }
+    window.localStorage.setItem(OWNER_DASHBOARD_USER_STORAGE_KEY, nextUsername);
+    window.localStorage.setItem(OWNER_DASHBOARD_KEY_STORAGE_KEY, nextOwnerKey);
+    setSavedKey(nextOwnerKey);
+    setIsAuthenticated(true);
+    setStatus(`Login berhasil. Selamat datang, ${nextUsername}.`);
   };
 
   const logout = () => {
