@@ -1,4 +1,5 @@
 import { Experience, Profile, Skill } from "@/lib/portfolioData";
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 const normalize = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -9,13 +10,7 @@ const normalizeNumber = (value: unknown, fallback: number) => {
 };
 
 export const isAuthorizedDashboardRequest = async () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? process.env.SUPABASE_URL?.trim();
-  const supabasePublishableKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ??
-    process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
-
-  if (!supabaseUrl || !supabasePublishableKey) {
+  if (!getSupabaseUrl() || !getSupabasePublishableKey()) {
     return false;
   }
 
