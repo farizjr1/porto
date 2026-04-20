@@ -3,41 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
-
-const DASHBOARD_USER_STORAGE_KEY = "dashboard-user-email";
-const DASHBOARD_SESSION_TOKEN_STORAGE_KEY = "dashboard-session-token";
-
-const decodeJwtPayload = (token: string) => {
-  const parts = token.split(".");
-
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const payloadSegment = parts[1];
-  const padding = (4 - (payloadSegment.length % 4)) % 4;
-  const payload = payloadSegment
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .concat("=".repeat(padding));
-
-  try {
-    const parsed = JSON.parse(window.atob(payload)) as { exp?: number; email?: string };
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-const isValidStoredSessionToken = (token: string) => {
-  const payload = decodeJwtPayload(token);
-
-  if (!payload || typeof payload.exp !== "number") {
-    return false;
-  }
-
-  return payload.exp * 1000 > Date.now();
-};
+import { createClient } from "@/lib/supabase/client";
 
 const emptyPortfolio: PortfolioData = {
   profile: {
@@ -77,12 +43,12 @@ const createExperience = (experiences: Experience[]): Experience => ({
 export default function DashboardPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [accessToken, setAccessToken] = useState("");
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const load = async () => {
@@ -102,38 +68,25 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
-      const storedToken =
-        window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
-      const tokenPayload = storedToken ? decodeJwtPayload(storedToken) : null;
+    const checkSession = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userEmail = authData.user?.email?.trim() ?? "";
 
-      if (storedToken && isValidStoredSessionToken(storedToken)) {
-        setEmail(storedUser || tokenPayload?.email?.trim() || "");
-        setAccessToken(storedToken);
-        setIsAuthenticated(true);
-      } else {
-        window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
-        window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
-      }
-
+      setEmail(userEmail);
+      setIsAuthenticated(Boolean(authData.user));
       setAuthReady(true);
-    }, 0);
+    };
 
-    return () => window.clearTimeout(timer);
-  }, []);
+    void checkSession();
+  }, [supabase]);
 
   const requestHeaders = useMemo(() => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
-    }
-
     return headers;
-  }, [accessToken]);
+  }, []);
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
@@ -147,37 +100,19 @@ export default function DashboardPage() {
     }
 
     try {
-      const response = await fetch("/api/dashboard/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mode: "login",
-          email: nextEmail,
-          password: nextPassword,
-        }),
+      const { data: loginData, error } = await supabase.auth.signInWithPassword({
+        email: nextEmail,
+        password: nextPassword,
       });
 
-      if (!response.ok) {
-        throw new Error("Unauthorized");
+      if (error || !loginData.user) {
+        throw error ?? new Error("Unauthorized");
       }
 
-      const result = (await response.json()) as { accessToken: string; email?: string };
-      const token = result.accessToken?.trim();
-
-      if (!token) {
-        throw new Error("Unauthorized");
-      }
-
-      window.localStorage.setItem(DASHBOARD_USER_STORAGE_KEY, result.email ?? nextEmail);
-      window.localStorage.setItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY, token);
-      setEmail(result.email ?? nextEmail);
-      setAccessToken(token);
+      setEmail(loginData.user.email?.trim() ?? nextEmail);
       setIsAuthenticated(true);
-      setStatus(`Login berhasil. Selamat datang, ${result.email ?? nextEmail}.`);
+      setStatus(`Login berhasil. Selamat datang, ${loginData.user.email ?? nextEmail}.`);
     } catch {
-      setAccessToken("");
       setIsAuthenticated(false);
       setStatus("Login gagal. Periksa email/password Anda.");
     }
@@ -193,65 +128,42 @@ export default function DashboardPage() {
     }
 
     try {
-      const response = await fetch("/api/dashboard/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: nextEmail,
+        password: nextPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
         },
-        body: JSON.stringify({
-          mode: "register",
-          email: nextEmail,
-          password: nextPassword,
-        }),
       });
-      const result = (await response.json()) as {
-        accessToken?: string;
-        email?: string;
-        requiresEmailConfirmation?: boolean;
-        message?: string;
-      };
 
-      if (!response.ok) {
-        throw new Error(result.message || "Register gagal.");
+      if (error) {
+        throw error;
       }
 
-      if (result.requiresEmailConfirmation || !result.accessToken) {
-        setStatus(
-          result.message ||
-            "Akun berhasil dibuat. Cek email verifikasi Anda, lalu login dengan akun tersebut.",
-        );
+      if (!signUpData.session || !signUpData.user) {
+        setStatus("Akun berhasil dibuat. Cek email verifikasi Anda, lalu login.");
         return;
       }
 
-      const token = result.accessToken.trim();
-      window.localStorage.setItem(DASHBOARD_USER_STORAGE_KEY, result.email ?? nextEmail);
-      window.localStorage.setItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY, token);
-      setEmail(result.email ?? nextEmail);
-      setAccessToken(token);
+      setEmail(signUpData.user.email?.trim() ?? nextEmail);
       setIsAuthenticated(true);
-      setStatus(`Akun berhasil dibuat dan login sebagai ${result.email ?? nextEmail}.`);
+      setStatus(`Akun berhasil dibuat dan login sebagai ${signUpData.user.email ?? nextEmail}.`);
     } catch (error) {
-      setAccessToken("");
       setIsAuthenticated(false);
       const message = error instanceof Error ? error.message : "Gagal membuat akun.";
       setStatus(message);
     }
   };
 
-  const logout = () => {
-    window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
-    window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
-    setAccessToken("");
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setEmail("");
     setPassword("");
     setIsAuthenticated(false);
     setStatus("Anda berhasil logout.");
   };
 
   const updateSection = async (path: string, body: unknown) => {
-    if (!accessToken) {
-      throw new Error("Kredensial autentikasi tidak tersedia");
-    }
-
     const response = await fetch(path, {
       method: "PUT",
       headers: requestHeaders,

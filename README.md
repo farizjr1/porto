@@ -25,8 +25,6 @@ Buat file `.env.local`:
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
-# opsional (legacy fallback jika ingin tetap pakai x-owner-key)
-OWNER_DASHBOARD_KEY=gantidengankuncirahasia
 SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
@@ -67,7 +65,7 @@ create table if not exists portfolio_experiences (
 ## 4) Dashboard tersembunyi
 
 - akses langsung: `http://localhost:3000/dashboard`
-- login di form awal dengan email + password Supabase Auth
+- login di form awal dengan email + password Supabase Auth (session cookie)
 - jika belum punya akun, klik `Buat Akun` di halaman dashboard
 - update profil, skill, pengalaman, dan CV
 - klik `Generate ATS` untuk generate CV otomatis dari data terbaru
