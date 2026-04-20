@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const activeOwnerKey = useMemo(() => savedKey || ownerKey.trim(), [ownerKey, savedKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -70,9 +71,9 @@ export default function DashboardPage() {
   const requestHeaders = useMemo(
     () => ({
       "Content-Type": "application/json",
-      "x-owner-key": savedKey,
+      "x-owner-key": activeOwnerKey,
     }),
-    [savedKey],
+    [activeOwnerKey],
   );
 
   const saveKey = (event: FormEvent) => {
@@ -136,7 +137,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/portfolio/cv/generate", {
         method: "POST",
-        headers: { "x-owner-key": savedKey },
+        headers: { "x-owner-key": activeOwnerKey },
       });
 
       if (!response.ok) {
