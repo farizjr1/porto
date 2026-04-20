@@ -4,6 +4,9 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
 
+const OWNER_DASHBOARD_USER_STORAGE_KEY = "owner-dashboard-user";
+const OWNER_DASHBOARD_KEY_STORAGE_KEY = "owner-dashboard-key";
+
 const emptyPortfolio: PortfolioData = {
   profile: {
     fullName: "",
@@ -40,23 +43,15 @@ const createExperience = (experiences: Experience[]): Experience => ({
 });
 
 export default function DashboardPage() {
-  const [username, setUsername] = useState(
-    () =>
-      (typeof window === "undefined" ? "" : window.localStorage.getItem("owner-dashboard-user") ?? "") ||
-      "",
-  );
-  const [ownerKey, setOwnerKey] = useState(
-    () => (typeof window === "undefined" ? "" : window.localStorage.getItem("owner-dashboard-key") ?? ""),
-  );
-  const [savedKey, setSavedKey] = useState(
-    () => (typeof window === "undefined" ? "" : window.localStorage.getItem("owner-dashboard-key") ?? ""),
-  );
+  const [username, setUsername] = useState("");
+  const [ownerKey, setOwnerKey] = useState("");
+  const [savedKey, setSavedKey] = useState("");
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const activeOwnerKey = useMemo(() => savedKey.trim(), [savedKey]);
+  const activeOwnerKey = useMemo(() => (savedKey || ownerKey).trim(), [ownerKey, savedKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -77,8 +72,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const verifyStoredSession = async () => {
-      const storedUser = window.localStorage.getItem("owner-dashboard-user")?.trim() ?? "";
-      const storedKey = window.localStorage.getItem("owner-dashboard-key")?.trim() ?? "";
+      const storedUser = window.localStorage.getItem(OWNER_DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
+      const storedKey = window.localStorage.getItem(OWNER_DASHBOARD_KEY_STORAGE_KEY)?.trim() ?? "";
 
       if (!storedUser || !storedKey) {
         setAuthReady(true);
@@ -101,8 +96,8 @@ export default function DashboardPage() {
         setSavedKey(storedKey);
         setIsAuthenticated(true);
       } catch {
-        window.localStorage.removeItem("owner-dashboard-user");
-        window.localStorage.removeItem("owner-dashboard-key");
+        window.localStorage.removeItem(OWNER_DASHBOARD_USER_STORAGE_KEY);
+        window.localStorage.removeItem(OWNER_DASHBOARD_KEY_STORAGE_KEY);
         setSavedKey("");
         setOwnerKey("");
         setIsAuthenticated(false);
@@ -144,8 +139,8 @@ export default function DashboardPage() {
         throw new Error("Unauthorized");
       }
 
-      window.localStorage.setItem("owner-dashboard-user", nextUsername);
-      window.localStorage.setItem("owner-dashboard-key", nextOwnerKey);
+      window.localStorage.setItem(OWNER_DASHBOARD_USER_STORAGE_KEY, nextUsername);
+      window.localStorage.setItem(OWNER_DASHBOARD_KEY_STORAGE_KEY, nextOwnerKey);
       setSavedKey(nextOwnerKey);
       setIsAuthenticated(true);
       setStatus(`Login berhasil. Selamat datang, ${nextUsername}.`);
@@ -157,8 +152,8 @@ export default function DashboardPage() {
   };
 
   const logout = () => {
-    window.localStorage.removeItem("owner-dashboard-user");
-    window.localStorage.removeItem("owner-dashboard-key");
+    window.localStorage.removeItem(OWNER_DASHBOARD_USER_STORAGE_KEY);
+    window.localStorage.removeItem(OWNER_DASHBOARD_KEY_STORAGE_KEY);
     setSavedKey("");
     setOwnerKey("");
     setIsAuthenticated(false);
@@ -167,7 +162,7 @@ export default function DashboardPage() {
 
   const updateSection = async (path: string, body: unknown) => {
     if (!activeOwnerKey) {
-      throw new Error("Unauthorized");
+      throw new Error("Kredensial autentikasi tidak tersedia");
     }
 
     const response = await fetch(path, {
