@@ -7,6 +7,38 @@ import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
 const DASHBOARD_USER_STORAGE_KEY = "dashboard-user-email";
 const DASHBOARD_SESSION_TOKEN_STORAGE_KEY = "dashboard-session-token";
 
+const decodeJwtPayload = (token: string) => {
+  const parts = token.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const payloadSegment = parts[1];
+  const padding = (4 - (payloadSegment.length % 4)) % 4;
+  const payload = payloadSegment
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .concat("=".repeat(padding));
+
+  try {
+    const parsed = JSON.parse(window.atob(payload)) as { exp?: number; email?: string };
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const isValidStoredSessionToken = (token: string) => {
+  const payload = decodeJwtPayload(token);
+
+  if (!payload || typeof payload.exp !== "number") {
+    return false;
+  }
+
+  return payload.exp * 1000 > Date.now();
+};
+
 const emptyPortfolio: PortfolioData = {
   profile: {
     fullName: "",
@@ -70,43 +102,25 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const verifyStoredSession = async () => {
+    const timer = window.setTimeout(() => {
       const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
       const storedToken =
         window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
+      const tokenPayload = storedToken ? decodeJwtPayload(storedToken) : null;
 
-      if (!storedToken) {
-        setAuthReady(true);
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/dashboard/auth", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Unauthorized");
-        }
-
-        const result = (await response.json()) as { email?: string };
-        setEmail(storedUser || result.email || "");
+      if (storedToken && isValidStoredSessionToken(storedToken)) {
+        setEmail(storedUser || tokenPayload?.email?.trim() || "");
         setAccessToken(storedToken);
         setIsAuthenticated(true);
-      } catch {
+      } else {
         window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
         window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
-        setAccessToken("");
-        setIsAuthenticated(false);
-      } finally {
-        setAuthReady(true);
       }
-    };
 
-    void verifyStoredSession();
+      setAuthReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const requestHeaders = useMemo(() => {

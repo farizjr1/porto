@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  extractBearerToken,
   loginDashboardUser,
   registerDashboardUser,
-  verifyDashboardAccessToken,
 } from "@/lib/dashboardAuth";
 
 export async function POST(request: Request) {
@@ -51,20 +49,4 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Autentikasi gagal.";
     return NextResponse.json({ message }, { status: 401 });
   }
-}
-
-export async function GET(request: Request) {
-  const token = extractBearerToken(request);
-
-  if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
-  const { isValid, user } = await verifyDashboardAccessToken(token);
-
-  if (!isValid || !user) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
-  return NextResponse.json({ ok: true, email: user.email ?? "" });
 }
