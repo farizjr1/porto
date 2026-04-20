@@ -1,18 +1,6 @@
 import { NextResponse } from "next/server";
 import { createExperience, getExperiences } from "@/lib/database";
-
-type ExperienceBody = {
-  role?: string;
-  company?: string;
-  period?: string;
-  description?: string;
-};
-
-const isInvalidBody = (body: ExperienceBody) =>
-  !body.role?.trim() ||
-  !body.company?.trim() ||
-  !body.period?.trim() ||
-  !body.description?.trim();
+import { ExperienceBody, parseExperienceBody } from "@/lib/requestParsers";
 
 export async function GET() {
   const experiences = await getExperiences();
@@ -21,17 +9,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = (await request.json()) as ExperienceBody;
+  const parsedBody = parseExperienceBody(body);
 
-  if (isInvalidBody(body)) {
+  if (!parsedBody) {
     return NextResponse.json({ message: "Data pengalaman tidak valid." }, { status: 400 });
   }
 
-  const experience = await createExperience({
-    role: body.role ?? "",
-    company: body.company ?? "",
-    period: body.period ?? "",
-    description: body.description ?? "",
-  });
+  const experience = await createExperience(parsedBody);
 
   return NextResponse.json(experience, { status: 201 });
 }

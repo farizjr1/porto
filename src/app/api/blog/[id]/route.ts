@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import { updateBlogPost } from "@/lib/database";
-
-type BlogBody = {
-  title?: string;
-  summary?: string;
-  content?: string;
-};
-
-const isInvalidBody = (body: BlogBody) =>
-  !body.title?.trim() || !body.summary?.trim() || !body.content?.trim();
+import { BlogBody, parseBlogBody } from "@/lib/requestParsers";
 
 export async function PUT(
   request: Request,
@@ -17,20 +9,17 @@ export async function PUT(
   const params = await context.params;
   const id = Number(params.id);
   const body = (await request.json()) as BlogBody;
+  const parsedBody = parseBlogBody(body);
 
   if (Number.isNaN(id) || id < 1) {
     return NextResponse.json({ message: "ID blog tidak valid." }, { status: 400 });
   }
 
-  if (isInvalidBody(body)) {
+  if (!parsedBody) {
     return NextResponse.json({ message: "Data blog tidak valid." }, { status: 400 });
   }
 
-  const updated = await updateBlogPost(id, {
-    title: body.title ?? "",
-    summary: body.summary ?? "",
-    content: body.content ?? "",
-  });
+  const updated = await updateBlogPost(id, parsedBody);
 
   if (!updated) {
     return NextResponse.json({ message: "Blog tidak ditemukan." }, { status: 404 });
