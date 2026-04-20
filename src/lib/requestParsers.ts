@@ -1,7 +1,14 @@
 import { Experience, Profile, Skill } from "@/lib/portfolioData";
 
-const OWNER_KEY =
-  process.env.OWNER_DASHBOARD_KEY?.trim() ?? process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+const ownerDashboardKey = process.env.OWNER_DASHBOARD_KEY?.trim() ?? "";
+const supabasePublishableKey =
+  process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ??
+  "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+const ownerKeyFromServiceRole = serviceRoleKey.startsWith("sb_publishable_") ? serviceRoleKey : "";
+const OWNER_KEY = ownerDashboardKey || supabasePublishableKey || ownerKeyFromServiceRole;
 
 const normalize = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
