@@ -82,6 +82,7 @@ export default function DashboardPage() {
 
       try {
         const response = await fetch("/api/dashboard/auth", {
+          method: "POST",
           headers: {
             "x-owner-key": storedKey,
           },
@@ -130,6 +131,7 @@ export default function DashboardPage() {
 
     try {
       const response = await fetch("/api/dashboard/auth", {
+        method: "POST",
         headers: {
           "x-owner-key": nextOwnerKey,
         },
