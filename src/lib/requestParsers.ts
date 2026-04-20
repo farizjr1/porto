@@ -1,13 +1,6 @@
 import { Experience, Profile, Skill } from "@/lib/portfolioData";
-import { extractBearerToken, verifyDashboardAccessToken } from "@/lib/dashboardAuth";
-
-const ownerDashboardKey = process.env.OWNER_DASHBOARD_KEY?.trim() ?? "";
-const supabasePublishableKey =
-  process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ??
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ??
-  "";
-const OWNER_KEY = ownerDashboardKey || supabasePublishableKey;
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
 
 const normalize = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
@@ -16,27 +9,14 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
-const isOwnerKeyRequest = (request: Request) => {
-  if (!OWNER_KEY) {
+export const isAuthorizedDashboardRequest = async () => {
+  if (!getSupabaseUrl() || !getSupabasePublishableKey()) {
     return false;
   }
 
-  const key = request.headers.get("x-owner-key")?.trim();
-  return key === OWNER_KEY;
-};
-
-export const isAuthorizedDashboardRequest = async (request: Request) => {
-  const bearerToken = extractBearerToken(request);
-
-  if (bearerToken) {
-    const { isValid } = await verifyDashboardAccessToken(bearerToken);
-
-    if (isValid) {
-      return true;
-    }
-  }
-
-  return isOwnerKeyRequest(request);
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getUser();
+  return Boolean(!error && data.user);
 };
 
 export const parseProfileBody = (body: unknown): Profile | null => {
