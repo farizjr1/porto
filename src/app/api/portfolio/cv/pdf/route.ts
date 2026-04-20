@@ -1,5 +1,7 @@
 import { getPortfolioData } from "@/lib/database";
 
+export const dynamic = "force-static";
+
 const escapePdfText = (value: string) => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 
 const wrapLines = (text: string, maxChars = 90) => {
