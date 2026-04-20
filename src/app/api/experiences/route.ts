@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createExperience, getExperiences } from "@/lib/database";
 import { ExperienceBody, parseExperienceBody } from "@/lib/requestParsers";
 
+export const dynamic = "force-static";
+
 export async function GET() {
   const experiences = await getExperiences();
   return NextResponse.json(experiences);
