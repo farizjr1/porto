@@ -8,8 +8,7 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
-export const isAuthorizedDashboardRequest = async (request: Request) => {
-  void request;
+export const isAuthorizedDashboardRequest = async () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? process.env.SUPABASE_URL?.trim();
   const supabasePublishableKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??

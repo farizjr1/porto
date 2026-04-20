@@ -3,7 +3,7 @@ import { updateCvContent } from "@/lib/database";
 import { isAuthorizedDashboardRequest, parseCvBody } from "@/lib/requestParsers";
 
 export async function PUT(request: Request) {
-  if (!(await isAuthorizedDashboardRequest(request))) {
+  if (!(await isAuthorizedDashboardRequest())) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
