@@ -25,7 +25,7 @@ Buat file `.env.local`:
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 OWNER_DASHBOARD_KEY=gantidengankuncirahasia # opsional
-SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY # opsional (bisa dipakai sebagai owner key)
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY # dipakai sebagai owner key jika OWNER_DASHBOARD_KEY kosong
 ```
 
 > Jika variabel Supabase belum diisi, aplikasi otomatis pakai fallback data lokal (in-memory).
