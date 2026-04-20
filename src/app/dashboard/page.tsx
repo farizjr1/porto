@@ -1,13 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./page.module.css";
 import {
   BlogPost,
   WorkExperience,
-  defaultBlogPosts,
-  defaultExperiences,
 } from "@/lib/portfolioData";
 
 type BlogForm = {
@@ -37,48 +35,91 @@ const initialExperienceForm: ExperienceForm = {
 };
 
 export default function DashboardPage() {
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(defaultBlogPosts);
-  const [experiences, setExperiences] = useState<WorkExperience[]>(defaultExperiences);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [experiences, setExperiences] = useState<WorkExperience[]>([]);
   const [blogForm, setBlogForm] = useState<BlogForm>(initialBlogForm);
   const [experienceForm, setExperienceForm] = useState<ExperienceForm>(initialExperienceForm);
   const [editingBlogId, setEditingBlogId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isBlogSubmitting, setIsBlogSubmitting] = useState(false);
+  const [isExperienceSubmitting, setIsExperienceSubmitting] = useState(false);
 
   const blogSubmitLabel = useMemo(
     () => (editingBlogId ? "Simpan Perubahan Blog" : "Upload Blog"),
     [editingBlogId],
   );
 
-  const handleBlogSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [blogResponse, experienceResponse] = await Promise.all([
+          fetch("/api/blog"),
+          fetch("/api/experiences"),
+        ]);
+
+        if (!blogResponse.ok || !experienceResponse.ok) {
+          throw new Error("Gagal memuat data dashboard.");
+        }
+
+        const [blogData, experienceData] = await Promise.all([
+          (blogResponse.json() as Promise<BlogPost[]>),
+          (experienceResponse.json() as Promise<WorkExperience[]>),
+        ]);
+
+        setBlogPosts(blogData);
+        setExperiences(experienceData);
+      } catch {
+        setErrorMessage("Terjadi kendala saat mengambil data dari database.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadDashboardData();
+  }, []);
+
+  const handleBlogSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setErrorMessage("");
+    setIsBlogSubmitting(true);
 
-    if (editingBlogId) {
-      setBlogPosts((current) =>
-        current.map((item) =>
-          item.id === editingBlogId
-            ? {
-                ...item,
-                title: blogForm.title,
-                summary: blogForm.summary,
-                content: blogForm.content,
-              }
-            : item,
-        ),
-      );
-      setEditingBlogId(null);
-    } else {
-      setBlogPosts((current) => [
+    try {
+      const response = await fetch(
+        editingBlogId ? `/api/blog/${editingBlogId}` : "/api/blog",
         {
-          id: Date.now(),
-          title: blogForm.title,
-          summary: blogForm.summary,
-          content: blogForm.content,
-          publishedAt: new Date().toISOString().slice(0, 10),
+          method: editingBlogId ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(blogForm),
         },
-        ...current,
-      ]);
-    }
+      );
 
-    setBlogForm(initialBlogForm);
+      if (!response.ok) {
+        throw new Error("Gagal menyimpan blog.");
+      }
+
+      const savedBlog = (await response.json()) as BlogPost;
+
+      if (editingBlogId) {
+        setBlogPosts((current) =>
+          current.map((item) => (item.id === editingBlogId ? savedBlog : item)),
+        );
+        setEditingBlogId(null);
+      } else {
+        setBlogPosts((current) => [savedBlog, ...current]);
+      }
+
+      setBlogForm(initialBlogForm);
+    } catch {
+      setErrorMessage("Gagal menyimpan blog ke database.");
+    } finally {
+      setIsBlogSubmitting(false);
+    }
   };
 
   const handleEditBlog = (blog: BlogPost) => {
@@ -90,32 +131,46 @@ export default function DashboardPage() {
     });
   };
 
-  const handleExperienceSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleExperienceSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setErrorMessage("");
+    setIsExperienceSubmitting(true);
 
-    setExperiences((current) => [
-      {
-        id: Date.now(),
-        role: experienceForm.role,
-        company: experienceForm.company,
-        period: experienceForm.period,
-        description: experienceForm.description,
-      },
-      ...current,
-    ]);
+    try {
+      const response = await fetch("/api/experiences", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(experienceForm),
+      });
 
-    setExperienceForm(initialExperienceForm);
+      if (!response.ok) {
+        throw new Error("Gagal menambah pengalaman.");
+      }
+
+      const savedExperience = (await response.json()) as WorkExperience;
+      setExperiences((current) => [savedExperience, ...current]);
+      setExperienceForm(initialExperienceForm);
+    } catch {
+      setErrorMessage("Gagal menyimpan pengalaman ke database.");
+    } finally {
+      setIsExperienceSubmitting(false);
+    }
   };
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>Dashboard Konten</h1>
-        <p>Kelola blog dan tambah pengalaman kerja.</p>
-        <Link href="/">Kembali ke Portofolio</Link>
+        <p>Kelola blog dan pengalaman kerja dari satu tempat.</p>
+        <Link href="/">← Kembali ke Portofolio</Link>
       </header>
 
-      <section className={styles.section}>
+      {errorMessage && <p className={styles.error}>{errorMessage}</p>}
+      {isLoading && <p className={styles.info}>Memuat data dari database...</p>}
+
+      <section className={styles.cardSection}>
         <h2>Upload / Edit Blog</h2>
         <form className={styles.form} onSubmit={handleBlogSubmit}>
           <input
@@ -137,7 +192,9 @@ export default function DashboardPage() {
             required
             rows={4}
           />
-          <button type="submit">{blogSubmitLabel}</button>
+          <button type="submit" disabled={isBlogSubmitting}>
+            {isBlogSubmitting ? "Menyimpan..." : blogSubmitLabel}
+          </button>
         </form>
 
         <div className={styles.list}>
@@ -154,7 +211,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      <section className={styles.cardSection}>
         <h2>Tambah Pengalaman Kerja</h2>
         <form className={styles.form} onSubmit={handleExperienceSubmit}>
           <input
@@ -190,7 +247,9 @@ export default function DashboardPage() {
             required
             rows={3}
           />
-          <button type="submit">Tambah Pengalaman</button>
+          <button type="submit" disabled={isExperienceSubmitting}>
+            {isExperienceSubmitting ? "Menyimpan..." : "Tambah Pengalaman"}
+          </button>
         </form>
 
         <div className={styles.list}>

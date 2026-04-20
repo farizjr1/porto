@@ -1,7 +1,11 @@
 import styles from "./page.module.css";
-import { defaultBlogPosts } from "@/lib/portfolioData";
+import { getBlogPosts } from "@/lib/database";
 
-export default function BlogPage() {
+export const dynamic = "force-dynamic";
+
+export default async function BlogPage() {
+  const blogPosts = await getBlogPosts();
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -12,7 +16,7 @@ export default function BlogPage() {
       </div>
 
       <div className={styles.postList}>
-        {defaultBlogPosts.map((post) => (
+        {blogPosts.map((post) => (
           <article key={post.id} className={styles.postCard}>
             <div className={styles.postMeta}>
               <time className={styles.postDate}>{post.publishedAt}</time>
