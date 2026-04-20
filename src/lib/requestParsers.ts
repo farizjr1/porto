@@ -6,11 +6,7 @@ const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ??
   "";
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
-const ownerKeyFromServiceRoleFallback = supabaseServiceRoleKey.startsWith("sb_publishable_")
-  ? supabaseServiceRoleKey
-  : "";
-const OWNER_KEY = ownerDashboardKey || supabasePublishableKey || ownerKeyFromServiceRoleFallback;
+const OWNER_KEY = ownerDashboardKey || supabasePublishableKey;
 
 const normalize = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 

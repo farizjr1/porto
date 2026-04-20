@@ -191,7 +191,7 @@ export default function DashboardPage() {
       <form onSubmit={saveKey} className={styles.card}>
         <h2>Owner Access Key</h2>
         <p className={styles.help}>
-          Isi key dari OWNER_DASHBOARD_KEY (atau SUPABASE_PUBLISHABLE_KEY / sb_publishable_*).
+          Isi key dari OWNER_DASHBOARD_KEY (atau SUPABASE_PUBLISHABLE_KEY/NEXT_PUBLIC_SUPABASE_ANON_KEY).
         </p>
         <input
           type="password"
