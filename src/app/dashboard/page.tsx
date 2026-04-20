@@ -54,7 +54,7 @@ export default function DashboardPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/portfolio-data", { cache: "no-store" });
+        const response = await fetch("/api/portfolio-data");
         const result = (await response.json()) as PortfolioData;
         setData(result);
       } catch {
