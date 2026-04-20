@@ -203,6 +203,7 @@ export default function DashboardPage() {
       const profile = (await updateSection("/api/portfolio/profile", data.profile)) as Profile;
       setData((current) => ({ ...current, profile }));
       setStatus("Profil berhasil diperbarui.");
+      router.refresh();
     } catch {
       setStatus("Gagal menyimpan profil. Pastikan login Anda benar.");
     }
@@ -215,6 +216,7 @@ export default function DashboardPage() {
       const skills = (await updateSection("/api/portfolio/skills", data.skills)) as Skill[];
       setData((current) => ({ ...current, skills }));
       setStatus("Skill berhasil diperbarui.");
+      router.refresh();
     } catch {
       setStatus("Gagal menyimpan skill. Pastikan login Anda benar.");
     }
@@ -227,6 +229,7 @@ export default function DashboardPage() {
       const experiences = (await updateSection("/api/portfolio/experiences", data.experiences)) as Experience[];
       setData((current) => ({ ...current, experiences }));
       setStatus("Pengalaman berhasil diperbarui.");
+      router.refresh();
     } catch {
       setStatus("Gagal menyimpan pengalaman. Pastikan login Anda benar.");
     }
@@ -276,6 +279,7 @@ export default function DashboardPage() {
       }));
 
       setStatus("CV ATS berhasil diperbarui.");
+      router.refresh();
     } catch {
       setStatus("Gagal menyimpan CV. Pastikan login Anda benar.");
     }
