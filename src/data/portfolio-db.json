@@ -1,0 +1,41 @@
+{
+  "blogPosts": [
+    {
+      "id": 1,
+      "title": "3 Cara Mengurangi Selisih Rekonsiliasi Bulanan",
+      "summary": "Langkah praktis untuk mempercepat tutup buku bulanan dengan kontrol data transaksi yang konsisten.",
+      "content": "Mulai dari pemetaan akun, jadwal cut-off, hingga review dokumen pendukung agar proses tutup buku lebih cepat.",
+      "publishedAt": "2026-01-15"
+    },
+    {
+      "id": 2,
+      "title": "Menyusun Dashboard Keuangan untuk UMKM",
+      "summary": "Metode sederhana memilih metrik penting: gross margin, cash runway, dan rasio biaya operasional.",
+      "content": "Fokuskan dashboard pada metrik yang berdampak langsung terhadap keputusan harian pemilik bisnis.",
+      "publishedAt": "2026-03-01"
+    },
+    {
+      "id": 3,
+      "title": "Optimasi Tax Planning Akhir Tahun",
+      "summary": "Strategi legal untuk meminimalkan beban pajak melalui perencanaan yang tepat sebelum tutup tahun.",
+      "content": "Perencanaan pajak yang baik dimulai dari pemahaman mendalam tentang peraturan yang berlaku.",
+      "publishedAt": "2026-04-05"
+    }
+  ],
+  "experiences": [
+    {
+      "id": 1,
+      "role": "Senior Accountant",
+      "company": "PT Maju Finansial",
+      "period": "2022 - Sekarang",
+      "description": "Memimpin proses closing bulanan, menyusun laporan manajemen, dan meningkatkan ketepatan pelaporan hingga 30%."
+    },
+    {
+      "id": 2,
+      "role": "Finance & Tax Staff",
+      "company": "CV Sukses Bersama",
+      "period": "2019 - 2022",
+      "description": "Mengelola pelaporan pajak rutin dan rekonsiliasi akun untuk lebih dari 500 transaksi per bulan."
+    }
+  ]
+}
