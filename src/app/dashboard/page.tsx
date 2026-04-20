@@ -40,6 +40,11 @@ const createExperience = (experiences: Experience[]): Experience => ({
 });
 
 export default function DashboardPage() {
+  const [username, setUsername] = useState(
+    () =>
+      (typeof window === "undefined" ? "" : window.localStorage.getItem("owner-dashboard-user") ?? "") ||
+      "",
+  );
   const [ownerKey, setOwnerKey] = useState(
     () => (typeof window === "undefined" ? "" : window.localStorage.getItem("owner-dashboard-key") ?? ""),
   );
@@ -49,7 +54,9 @@ export default function DashboardPage() {
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
-  const activeOwnerKey = useMemo(() => savedKey || ownerKey.trim(), [ownerKey, savedKey]);
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const activeOwnerKey = useMemo(() => savedKey.trim(), [savedKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -68,6 +75,45 @@ export default function DashboardPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const verifyStoredSession = async () => {
+      const storedUser = window.localStorage.getItem("owner-dashboard-user")?.trim() ?? "";
+      const storedKey = window.localStorage.getItem("owner-dashboard-key")?.trim() ?? "";
+
+      if (!storedUser || !storedKey) {
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/dashboard/auth", {
+          headers: {
+            "x-owner-key": storedKey,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Unauthorized");
+        }
+
+        setUsername(storedUser);
+        setOwnerKey(storedKey);
+        setSavedKey(storedKey);
+        setIsAuthenticated(true);
+      } catch {
+        window.localStorage.removeItem("owner-dashboard-user");
+        window.localStorage.removeItem("owner-dashboard-key");
+        setSavedKey("");
+        setOwnerKey("");
+        setIsAuthenticated(false);
+      } finally {
+        setAuthReady(true);
+      }
+    };
+
+    void verifyStoredSession();
+  }, []);
+
   const requestHeaders = useMemo(
     () => ({
       "Content-Type": "application/json",
@@ -76,14 +122,54 @@ export default function DashboardPage() {
     [activeOwnerKey],
   );
 
-  const saveKey = (event: FormEvent) => {
+  const login = async (event: FormEvent) => {
     event.preventDefault();
-    window.localStorage.setItem("owner-dashboard-key", ownerKey.trim());
-    setSavedKey(ownerKey.trim());
-    setStatus("Kunci pemilik tersimpan di browser ini.");
+
+    const nextUsername = username.trim();
+    const nextOwnerKey = ownerKey.trim();
+
+    if (!nextUsername || !nextOwnerKey) {
+      setStatus("Username dan password wajib diisi.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/dashboard/auth", {
+        headers: {
+          "x-owner-key": nextOwnerKey,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Unauthorized");
+      }
+
+      window.localStorage.setItem("owner-dashboard-user", nextUsername);
+      window.localStorage.setItem("owner-dashboard-key", nextOwnerKey);
+      setSavedKey(nextOwnerKey);
+      setIsAuthenticated(true);
+      setStatus(`Login berhasil. Selamat datang, ${nextUsername}.`);
+    } catch {
+      setSavedKey("");
+      setIsAuthenticated(false);
+      setStatus("Login gagal. Periksa username/password Anda.");
+    }
+  };
+
+  const logout = () => {
+    window.localStorage.removeItem("owner-dashboard-user");
+    window.localStorage.removeItem("owner-dashboard-key");
+    setSavedKey("");
+    setOwnerKey("");
+    setIsAuthenticated(false);
+    setStatus("Anda berhasil logout.");
   };
 
   const updateSection = async (path: string, body: unknown) => {
+    if (!activeOwnerKey) {
+      throw new Error("Unauthorized");
+    }
+
     const response = await fetch(path, {
       method: "PUT",
       headers: requestHeaders,
@@ -105,7 +191,7 @@ export default function DashboardPage() {
       setData((current) => ({ ...current, profile }));
       setStatus("Profil berhasil diperbarui.");
     } catch {
-      setStatus("Gagal menyimpan profil. Pastikan owner key benar.");
+      setStatus("Gagal menyimpan profil. Pastikan login Anda benar.");
     }
   };
 
@@ -117,7 +203,7 @@ export default function DashboardPage() {
       setData((current) => ({ ...current, skills }));
       setStatus("Skill berhasil diperbarui.");
     } catch {
-      setStatus("Gagal menyimpan skill. Pastikan owner key benar.");
+      setStatus("Gagal menyimpan skill. Pastikan login Anda benar.");
     }
   };
 
@@ -129,7 +215,7 @@ export default function DashboardPage() {
       setData((current) => ({ ...current, experiences }));
       setStatus("Pengalaman berhasil diperbarui.");
     } catch {
-      setStatus("Gagal menyimpan pengalaman. Pastikan owner key benar.");
+      setStatus("Gagal menyimpan pengalaman. Pastikan login Anda benar.");
     }
   };
 
@@ -156,7 +242,7 @@ export default function DashboardPage() {
 
       setStatus("CV ATS berhasil digenerate.");
     } catch {
-      setStatus("Gagal generate CV ATS. Pastikan owner key benar.");
+      setStatus("Gagal generate CV ATS. Pastikan login Anda benar.");
     }
   };
 
@@ -178,9 +264,17 @@ export default function DashboardPage() {
 
       setStatus("CV ATS berhasil diperbarui.");
     } catch {
-      setStatus("Gagal menyimpan CV. Pastikan owner key benar.");
+      setStatus("Gagal menyimpan CV. Pastikan login Anda benar.");
     }
   };
+
+  if (!authReady) {
+    return (
+      <div className={styles.page}>
+        <p className={styles.status}>Memeriksa sesi login...</p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -189,260 +283,277 @@ export default function DashboardPage() {
         <p>Akses halaman ini langsung lewat URL /dashboard.</p>
       </header>
 
-      <form onSubmit={saveKey} className={styles.card}>
-        <h2>Owner Access Key</h2>
-        <p className={styles.help}>
-          Isi key dari OWNER_DASHBOARD_KEY (atau SUPABASE_PUBLISHABLE_KEY/NEXT_PUBLIC_SUPABASE_ANON_KEY).
-        </p>
-        <input
-          type="password"
-          value={ownerKey}
-          onChange={(event) => setOwnerKey(event.target.value)}
-          placeholder="Masukkan owner key"
-          required
-        />
-        <button type="submit">Simpan Key</button>
-      </form>
-
-      {status && <p className={styles.status}>{status}</p>}
-      {loading && <p className={styles.status}>Memuat data...</p>}
-
-      <form onSubmit={saveProfile} className={styles.card}>
-        <h2>Profil</h2>
-        <input
-          value={data.profile.fullName}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, fullName: event.target.value },
-            }))
-          }
-          placeholder="Nama lengkap"
-          required
-        />
-        <input
-          value={data.profile.headline}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, headline: event.target.value },
-            }))
-          }
-          placeholder="Headline"
-          required
-        />
-        <textarea
-          rows={4}
-          value={data.profile.bio}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, bio: event.target.value },
-            }))
-          }
-          placeholder="Biodata"
-          required
-        />
-        <input
-          type="email"
-          value={data.profile.email}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, email: event.target.value },
-            }))
-          }
-          placeholder="Email"
-          required
-        />
-        <input
-          value={data.profile.location}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, location: event.target.value },
-            }))
-          }
-          placeholder="Lokasi"
-          required
-        />
-        <button type="submit">Simpan Profil</button>
-      </form>
-
-      <form onSubmit={saveSkills} className={styles.card}>
-        <h2>Skill</h2>
-        {data.skills.map((skill) => (
-          <div key={skill.id} className={styles.itemGrid}>
-            <input
-              value={skill.name}
-              onChange={(event) =>
-                setData((current) => ({
-                  ...current,
-                  skills: current.skills.map((item) =>
-                    item.id === skill.id ? { ...item, name: event.target.value } : item,
-                  ),
-                }))
-              }
-              placeholder="Nama skill"
-              required
-            />
-            <input
-              value={skill.level}
-              onChange={(event) =>
-                setData((current) => ({
-                  ...current,
-                  skills: current.skills.map((item) =>
-                    item.id === skill.id ? { ...item, level: event.target.value } : item,
-                  ),
-                }))
-              }
-              placeholder="Level"
-              required
-            />
-            <button
-              type="button"
-              onClick={() =>
-                setData((current) => ({
-                  ...current,
-                  skills: current.skills.filter((item) => item.id !== skill.id),
-                }))
-              }
-            >
-              Hapus
+      {!isAuthenticated ? (
+        <form onSubmit={login} className={styles.card}>
+          <h2>Login Dashboard</h2>
+          <p className={styles.help}>
+            Masukkan username dan password. Password menggunakan nilai OWNER_DASHBOARD_KEY (atau
+            SUPABASE_PUBLISHABLE_KEY / NEXT_PUBLIC_SUPABASE_ANON_KEY).
+          </p>
+          <input
+            type="text"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="Username"
+            required
+          />
+          <input
+            type="password"
+            value={ownerKey}
+            onChange={(event) => setOwnerKey(event.target.value)}
+            placeholder="Password"
+            required
+          />
+          <button type="submit">Login</button>
+        </form>
+      ) : (
+        <>
+          <div className={styles.buttonRow}>
+            <p className={styles.help}>Login sebagai: {username}</p>
+            <button type="button" onClick={logout}>
+              Logout
             </button>
           </div>
-        ))}
-        <div className={styles.buttonRow}>
-          <button
-            type="button"
-            onClick={() =>
-              setData((current) => ({
-                ...current,
-                skills: [...current.skills, createSkill(current.skills)],
-              }))
-            }
-          >
-            Tambah Skill
-          </button>
-          <button type="submit">Simpan Skill</button>
-        </div>
-      </form>
 
-      <form onSubmit={saveExperiences} className={styles.card}>
-        <h2>Pengalaman</h2>
-        {data.experiences.map((experience) => (
-          <div key={experience.id} className={styles.itemGridBlock}>
+          {loading && <p className={styles.status}>Memuat data...</p>}
+
+          <form onSubmit={saveProfile} className={styles.card}>
+            <h2>Profil</h2>
             <input
-              value={experience.role}
+              value={data.profile.fullName}
               onChange={(event) =>
                 setData((current) => ({
                   ...current,
-                  experiences: current.experiences.map((item) =>
-                    item.id === experience.id ? { ...item, role: event.target.value } : item,
-                  ),
+                  profile: { ...current.profile, fullName: event.target.value },
                 }))
               }
-              placeholder="Posisi"
+              placeholder="Nama lengkap"
               required
             />
             <input
-              value={experience.company}
+              value={data.profile.headline}
               onChange={(event) =>
                 setData((current) => ({
                   ...current,
-                  experiences: current.experiences.map((item) =>
-                    item.id === experience.id ? { ...item, company: event.target.value } : item,
-                  ),
+                  profile: { ...current.profile, headline: event.target.value },
                 }))
               }
-              placeholder="Perusahaan"
-              required
-            />
-            <input
-              value={experience.period}
-              onChange={(event) =>
-                setData((current) => ({
-                  ...current,
-                  experiences: current.experiences.map((item) =>
-                    item.id === experience.id ? { ...item, period: event.target.value } : item,
-                  ),
-                }))
-              }
-              placeholder="Periode"
+              placeholder="Headline"
               required
             />
             <textarea
-              rows={3}
-              value={experience.description}
+              rows={4}
+              value={data.profile.bio}
               onChange={(event) =>
                 setData((current) => ({
                   ...current,
-                  experiences: current.experiences.map((item) =>
-                    item.id === experience.id ? { ...item, description: event.target.value } : item,
-                  ),
+                  profile: { ...current.profile, bio: event.target.value },
                 }))
               }
-              placeholder="Deskripsi pekerjaan"
+              placeholder="Biodata"
               required
             />
-            <button
-              type="button"
-              onClick={() =>
+            <input
+              type="email"
+              value={data.profile.email}
+              onChange={(event) =>
                 setData((current) => ({
                   ...current,
-                  experiences: current.experiences.filter((item) => item.id !== experience.id),
+                  profile: { ...current.profile, email: event.target.value },
                 }))
               }
-            >
-              Hapus Pengalaman
-            </button>
-          </div>
-        ))}
-        <div className={styles.buttonRow}>
-          <button
-            type="button"
-            onClick={() =>
-              setData((current) => ({
-                ...current,
-                experiences: [
-                  ...current.experiences,
-                  createExperience(current.experiences),
-                ],
-              }))
-            }
-          >
-            Tambah Pengalaman
-          </button>
-          <button type="submit">Simpan Pengalaman</button>
-        </div>
-      </form>
+              placeholder="Email"
+              required
+            />
+            <input
+              value={data.profile.location}
+              onChange={(event) =>
+                setData((current) => ({
+                  ...current,
+                  profile: { ...current.profile, location: event.target.value },
+                }))
+              }
+              placeholder="Lokasi"
+              required
+            />
+            <button type="submit">Simpan Profil</button>
+          </form>
 
-      <form onSubmit={saveCv} className={styles.card}>
-        <div className={styles.buttonRow}>
-          <h2>CV ATS</h2>
-          <button type="button" onClick={generateCv}>
-            Generate ATS
-          </button>
-        </div>
-        <textarea
-          rows={14}
-          value={data.profile.cvContent}
-          onChange={(event) =>
-            setData((current) => ({
-              ...current,
-              profile: { ...current.profile, cvContent: event.target.value },
-            }))
-          }
-          placeholder="Isi CV ATS"
-          required
-        />
-        <div className={styles.buttonRow}>
-          <button type="submit">Simpan CV</button>
-          <a className={styles.linkButton} href="/api/portfolio/cv/pdf">
-            Export PDF
-          </a>
-        </div>
-      </form>
+          <form onSubmit={saveSkills} className={styles.card}>
+            <h2>Skill</h2>
+            {data.skills.map((skill) => (
+              <div key={skill.id} className={styles.itemGrid}>
+                <input
+                  value={skill.name}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      skills: current.skills.map((item) =>
+                        item.id === skill.id ? { ...item, name: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Nama skill"
+                  required
+                />
+                <input
+                  value={skill.level}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      skills: current.skills.map((item) =>
+                        item.id === skill.id ? { ...item, level: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Level"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setData((current) => ({
+                      ...current,
+                      skills: current.skills.filter((item) => item.id !== skill.id),
+                    }))
+                  }
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+            <div className={styles.buttonRow}>
+              <button
+                type="button"
+                onClick={() =>
+                  setData((current) => ({
+                    ...current,
+                    skills: [...current.skills, createSkill(current.skills)],
+                  }))
+                }
+              >
+                Tambah Skill
+              </button>
+              <button type="submit">Simpan Skill</button>
+            </div>
+          </form>
+
+          <form onSubmit={saveExperiences} className={styles.card}>
+            <h2>Pengalaman</h2>
+            {data.experiences.map((experience) => (
+              <div key={experience.id} className={styles.itemGridBlock}>
+                <input
+                  value={experience.role}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      experiences: current.experiences.map((item) =>
+                        item.id === experience.id ? { ...item, role: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Posisi"
+                  required
+                />
+                <input
+                  value={experience.company}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      experiences: current.experiences.map((item) =>
+                        item.id === experience.id ? { ...item, company: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Perusahaan"
+                  required
+                />
+                <input
+                  value={experience.period}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      experiences: current.experiences.map((item) =>
+                        item.id === experience.id ? { ...item, period: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Periode"
+                  required
+                />
+                <textarea
+                  rows={3}
+                  value={experience.description}
+                  onChange={(event) =>
+                    setData((current) => ({
+                      ...current,
+                      experiences: current.experiences.map((item) =>
+                        item.id === experience.id ? { ...item, description: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                  placeholder="Deskripsi pekerjaan"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setData((current) => ({
+                      ...current,
+                      experiences: current.experiences.filter((item) => item.id !== experience.id),
+                    }))
+                  }
+                >
+                  Hapus Pengalaman
+                </button>
+              </div>
+            ))}
+            <div className={styles.buttonRow}>
+              <button
+                type="button"
+                onClick={() =>
+                  setData((current) => ({
+                    ...current,
+                    experiences: [...current.experiences, createExperience(current.experiences)],
+                  }))
+                }
+              >
+                Tambah Pengalaman
+              </button>
+              <button type="submit">Simpan Pengalaman</button>
+            </div>
+          </form>
+
+          <form onSubmit={saveCv} className={styles.card}>
+            <div className={styles.buttonRow}>
+              <h2>CV ATS</h2>
+              <button type="button" onClick={generateCv}>
+                Generate ATS
+              </button>
+            </div>
+            <textarea
+              rows={14}
+              value={data.profile.cvContent}
+              onChange={(event) =>
+                setData((current) => ({
+                  ...current,
+                  profile: { ...current.profile, cvContent: event.target.value },
+                }))
+              }
+              placeholder="Isi CV ATS"
+              required
+            />
+            <div className={styles.buttonRow}>
+              <button type="submit">Simpan CV</button>
+              <a className={styles.linkButton} href="/api/portfolio/cv/pdf">
+                Export PDF
+              </a>
+            </div>
+          </form>
+        </>
+      )}
+
+      {status && <p className={styles.status}>{status}</p>}
     </div>
   );
 }

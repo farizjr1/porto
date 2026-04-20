@@ -66,7 +66,8 @@ create table if not exists portfolio_experiences (
 ## 4) Dashboard tersembunyi
 
 - akses langsung: `http://localhost:3000/dashboard`
-- masukkan owner key (`OWNER_DASHBOARD_KEY`) di form awal
+- login di form awal dengan username dan password
+- password menggunakan nilai `OWNER_DASHBOARD_KEY` (atau fallback publishable/anon key)
 - update profil, skill, pengalaman, dan CV
 - klik `Generate ATS` untuk generate CV otomatis dari data terbaru
 - klik `Export PDF` untuk unduh CV PDF
