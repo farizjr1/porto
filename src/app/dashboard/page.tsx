@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import styles from "./page.module.css";
 import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
 import { createClient } from "@/lib/supabase/client";
@@ -16,6 +16,10 @@ const emptyPortfolio: PortfolioData = {
   },
   skills: [],
   experiences: [],
+};
+
+const requestHeaders: Record<string, string> = {
+  "Content-Type": "application/json",
 };
 
 let tempId = -1;
@@ -48,7 +52,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
+  const [supabase] = useState(createClient);
 
   useEffect(() => {
     const load = async () => {
@@ -79,14 +83,6 @@ export default function DashboardPage() {
 
     void checkSession();
   }, [supabase]);
-
-  const requestHeaders = useMemo(() => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    return headers;
-  }, []);
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
