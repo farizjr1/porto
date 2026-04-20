@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { replaceSkills } from "@/lib/database";
 import { isAuthorizedDashboardRequest, parseSkillsBody } from "@/lib/requestParsers";
 
+export const dynamic = 'force-dynamic';
 export async function PUT(request: Request) {
   if (!(await isAuthorizedDashboardRequest())) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
