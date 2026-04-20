@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { replaceExperiences } from "@/lib/database";
-import { isOwnerRequest, parseExperiencesBody } from "@/lib/requestParsers";
+import { isAuthorizedDashboardRequest, parseExperiencesBody } from "@/lib/requestParsers";
 
 export async function PUT(request: Request) {
-  if (!isOwnerRequest(request)) {
+  if (!(await isAuthorizedDashboardRequest(request))) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

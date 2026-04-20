@@ -4,8 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
 
-const OWNER_DASHBOARD_USER_STORAGE_KEY = "owner-dashboard-user";
-const OWNER_DASHBOARD_KEY_STORAGE_KEY = "owner-dashboard-key";
+const DASHBOARD_USER_STORAGE_KEY = "dashboard-user-email";
+const DASHBOARD_SESSION_TOKEN_STORAGE_KEY = "dashboard-session-token";
 
 const emptyPortfolio: PortfolioData = {
   profile: {
@@ -43,15 +43,14 @@ const createExperience = (experiences: Experience[]): Experience => ({
 });
 
 export default function DashboardPage() {
-  const [username, setUsername] = useState("");
-  const [ownerKey, setOwnerKey] = useState("");
-  const [savedKey, setSavedKey] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const activeOwnerKey = useMemo(() => (savedKey || ownerKey).trim(), [ownerKey, savedKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -72,19 +71,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const verifyStoredSession = async () => {
-      const storedUser = window.localStorage.getItem(OWNER_DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
-      const storedKey = window.localStorage.getItem(OWNER_DASHBOARD_KEY_STORAGE_KEY)?.trim() ?? "";
+      const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
+      const storedToken =
+        window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
 
-      if (!storedUser || !storedKey) {
+      if (!storedToken) {
         setAuthReady(true);
         return;
       }
 
       try {
         const response = await fetch("/api/dashboard/auth", {
-          method: "POST",
+          method: "GET",
           headers: {
-            "x-owner-key": storedKey,
+            Authorization: `Bearer ${storedToken}`,
           },
         });
 
@@ -92,15 +92,14 @@ export default function DashboardPage() {
           throw new Error("Unauthorized");
         }
 
-        setUsername(storedUser);
-        setOwnerKey(storedKey);
-        setSavedKey(storedKey);
+        const result = (await response.json()) as { email?: string };
+        setEmail(storedUser || result.email || "");
+        setAccessToken(storedToken);
         setIsAuthenticated(true);
       } catch {
-        window.localStorage.removeItem(OWNER_DASHBOARD_USER_STORAGE_KEY);
-        window.localStorage.removeItem(OWNER_DASHBOARD_KEY_STORAGE_KEY);
-        setSavedKey("");
-        setOwnerKey("");
+        window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
+        window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
+        setAccessToken("");
         setIsAuthenticated(false);
       } finally {
         setAuthReady(true);
@@ -110,22 +109,26 @@ export default function DashboardPage() {
     void verifyStoredSession();
   }, []);
 
-  const requestHeaders = useMemo(
-    () => ({
+  const requestHeaders = useMemo(() => {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "x-owner-key": activeOwnerKey,
-    }),
-    [activeOwnerKey],
-  );
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return headers;
+  }, [accessToken]);
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
 
-    const nextUsername = username.trim();
-    const nextOwnerKey = ownerKey.trim();
+    const nextEmail = email.trim().toLowerCase();
+    const nextPassword = password.trim();
 
-    if (!nextUsername || !nextOwnerKey) {
-      setStatus("Username dan password wajib diisi.");
+    if (!nextEmail || !nextPassword) {
+      setStatus("Email dan password wajib diisi.");
       return;
     }
 
@@ -133,37 +136,105 @@ export default function DashboardPage() {
       const response = await fetch("/api/dashboard/auth", {
         method: "POST",
         headers: {
-          "x-owner-key": nextOwnerKey,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          mode: "login",
+          email: nextEmail,
+          password: nextPassword,
+        }),
       });
 
       if (!response.ok) {
         throw new Error("Unauthorized");
       }
 
-      window.localStorage.setItem(OWNER_DASHBOARD_USER_STORAGE_KEY, nextUsername);
-      window.localStorage.setItem(OWNER_DASHBOARD_KEY_STORAGE_KEY, nextOwnerKey);
-      setSavedKey(nextOwnerKey);
+      const result = (await response.json()) as { accessToken: string; email?: string };
+      const token = result.accessToken?.trim();
+
+      if (!token) {
+        throw new Error("Unauthorized");
+      }
+
+      window.localStorage.setItem(DASHBOARD_USER_STORAGE_KEY, result.email ?? nextEmail);
+      window.localStorage.setItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY, token);
+      setEmail(result.email ?? nextEmail);
+      setAccessToken(token);
       setIsAuthenticated(true);
-      setStatus(`Login berhasil. Selamat datang, ${nextUsername}.`);
+      setStatus(`Login berhasil. Selamat datang, ${result.email ?? nextEmail}.`);
     } catch {
-      setSavedKey("");
+      setAccessToken("");
       setIsAuthenticated(false);
-      setStatus("Login gagal. Periksa username/password Anda.");
+      setStatus("Login gagal. Periksa email/password Anda.");
+    }
+  };
+
+  const createAccount = async () => {
+    const nextEmail = email.trim().toLowerCase();
+    const nextPassword = password.trim();
+
+    if (!nextEmail || !nextPassword) {
+      setStatus("Email dan password wajib diisi.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/dashboard/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mode: "register",
+          email: nextEmail,
+          password: nextPassword,
+        }),
+      });
+      const result = (await response.json()) as {
+        accessToken?: string;
+        email?: string;
+        requiresEmailConfirmation?: boolean;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Register gagal.");
+      }
+
+      if (result.requiresEmailConfirmation || !result.accessToken) {
+        setStatus(
+          result.message ||
+            "Akun berhasil dibuat. Cek email verifikasi Anda, lalu login dengan akun tersebut.",
+        );
+        return;
+      }
+
+      const token = result.accessToken.trim();
+      window.localStorage.setItem(DASHBOARD_USER_STORAGE_KEY, result.email ?? nextEmail);
+      window.localStorage.setItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY, token);
+      setEmail(result.email ?? nextEmail);
+      setAccessToken(token);
+      setIsAuthenticated(true);
+      setStatus(`Akun berhasil dibuat dan login sebagai ${result.email ?? nextEmail}.`);
+    } catch (error) {
+      setAccessToken("");
+      setIsAuthenticated(false);
+      const message = error instanceof Error ? error.message : "Gagal membuat akun.";
+      setStatus(message);
     }
   };
 
   const logout = () => {
-    window.localStorage.removeItem(OWNER_DASHBOARD_USER_STORAGE_KEY);
-    window.localStorage.removeItem(OWNER_DASHBOARD_KEY_STORAGE_KEY);
-    setSavedKey("");
-    setOwnerKey("");
+    window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
+    window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
+    setAccessToken("");
+    setPassword("");
     setIsAuthenticated(false);
     setStatus("Anda berhasil logout.");
   };
 
   const updateSection = async (path: string, body: unknown) => {
-    if (!activeOwnerKey) {
+    if (!accessToken) {
       throw new Error("Kredensial autentikasi tidak tersedia");
     }
 
@@ -220,7 +291,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/portfolio/cv/generate", {
         method: "POST",
-        headers: { "x-owner-key": activeOwnerKey },
+        headers: requestHeaders,
       });
 
       if (!response.ok) {
@@ -284,29 +355,33 @@ export default function DashboardPage() {
         <form onSubmit={login} className={styles.card}>
           <h2>Login Dashboard</h2>
           <p className={styles.help}>
-            Masukkan username dan password. Password menggunakan nilai OWNER_DASHBOARD_KEY (atau
-            SUPABASE_PUBLISHABLE_KEY / NEXT_PUBLIC_SUPABASE_ANON_KEY).
+            Gunakan email dan password Supabase Auth. Jika belum punya akun, klik tombol Buat Akun.
           </p>
           <input
-            type="text"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="Username"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
             required
           />
           <input
             type="password"
-            value={ownerKey}
-            onChange={(event) => setOwnerKey(event.target.value)}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
             required
           />
-          <button type="submit">Login</button>
+          <div className={styles.buttonRow}>
+            <button type="submit">Login</button>
+            <button type="button" onClick={createAccount}>
+              Buat Akun
+            </button>
+          </div>
         </form>
       ) : (
         <>
           <div className={styles.buttonRow}>
-            <p className={styles.help}>Login sebagai: {username}</p>
+            <p className={styles.help}>Login sebagai: {email}</p>
             <button type="button" onClick={logout}>
               Logout
             </button>

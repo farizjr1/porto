@@ -1,4 +1,5 @@
 import { Experience, Profile, Skill } from "@/lib/portfolioData";
+import { extractBearerToken, verifyDashboardAccessToken } from "@/lib/dashboardAuth";
 
 const ownerDashboardKey = process.env.OWNER_DASHBOARD_KEY?.trim() ?? "";
 const supabasePublishableKey =
@@ -15,13 +16,27 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(number) ? number : fallback;
 };
 
-export const isOwnerRequest = (request: Request) => {
+const isOwnerKeyRequest = (request: Request) => {
   if (!OWNER_KEY) {
     return false;
   }
 
   const key = request.headers.get("x-owner-key")?.trim();
   return key === OWNER_KEY;
+};
+
+export const isAuthorizedDashboardRequest = async (request: Request) => {
+  const bearerToken = extractBearerToken(request);
+
+  if (bearerToken) {
+    const { isValid } = await verifyDashboardAccessToken(bearerToken);
+
+    if (isValid) {
+      return true;
+    }
+  }
+
+  return isOwnerKeyRequest(request);
 };
 
 export const parseProfileBody = (body: unknown): Profile | null => {
