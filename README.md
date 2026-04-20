@@ -24,9 +24,10 @@ Buat file `.env.local`:
 ```env
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-OWNER_DASHBOARD_KEY=gantidengankuncirahasia # opsional
-SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY # dipakai sebagai owner key jika OWNER_DASHBOARD_KEY kosong
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY # alternatif publishable key untuk fallback owner key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+# opsional (legacy fallback jika ingin tetap pakai x-owner-key)
+OWNER_DASHBOARD_KEY=gantidengankuncirahasia
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
 > Jika variabel Supabase belum diisi, aplikasi otomatis pakai fallback data lokal (in-memory).
@@ -66,8 +67,8 @@ create table if not exists portfolio_experiences (
 ## 4) Dashboard tersembunyi
 
 - akses langsung: `http://localhost:3000/dashboard`
-- login di form awal dengan username dan password
-- password menggunakan nilai `OWNER_DASHBOARD_KEY` (atau fallback publishable/anon key)
+- login di form awal dengan email + password Supabase Auth
+- jika belum punya akun, klik `Buat Akun` di halaman dashboard
 - update profil, skill, pengalaman, dan CV
 - klik `Generate ATS` untuk generate CV otomatis dari data terbaru
 - klik `Export PDF` untuk unduh CV PDF

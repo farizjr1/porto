@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { updateCvContent } from "@/lib/database";
-import { isOwnerRequest, parseCvBody } from "@/lib/requestParsers";
+import { isAuthorizedDashboardRequest, parseCvBody } from "@/lib/requestParsers";
 
 export async function PUT(request: Request) {
-  if (!isOwnerRequest(request)) {
+  if (!(await isAuthorizedDashboardRequest(request))) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
