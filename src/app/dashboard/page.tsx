@@ -70,43 +70,16 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const verifyStoredSession = async () => {
-      const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
-      const storedToken =
-        window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
+    const storedUser = window.localStorage.getItem(DASHBOARD_USER_STORAGE_KEY)?.trim() ?? "";
+    const storedToken = window.localStorage.getItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY)?.trim() ?? "";
 
-      if (!storedToken) {
-        setAuthReady(true);
-        return;
-      }
+    if (storedToken) {
+      setEmail(storedUser);
+      setAccessToken(storedToken);
+      setIsAuthenticated(true);
+    }
 
-      try {
-        const response = await fetch("/api/dashboard/auth", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Unauthorized");
-        }
-
-        const result = (await response.json()) as { email?: string };
-        setEmail(storedUser || result.email || "");
-        setAccessToken(storedToken);
-        setIsAuthenticated(true);
-      } catch {
-        window.localStorage.removeItem(DASHBOARD_USER_STORAGE_KEY);
-        window.localStorage.removeItem(DASHBOARD_SESSION_TOKEN_STORAGE_KEY);
-        setAccessToken("");
-        setIsAuthenticated(false);
-      } finally {
-        setAuthReady(true);
-      }
-    };
-
-    void verifyStoredSession();
+    setAuthReady(true);
   }, []);
 
   const requestHeaders = useMemo(() => {
