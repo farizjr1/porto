@@ -4,9 +4,9 @@ import Navbar from "@/components/Navbar";
 import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
-  title: "Portofolio Akuntansi Fariz",
+  title: "Portfolio Akuntansi",
   description:
-    "Website portofolio akuntansi dengan dashboard untuk upload blog, edit konten, dan tambah pengalaman kerja.",
+    "Website portfolio akuntansi dengan dashboard tersembunyi untuk update biodata, CV, pengalaman, dan skill menggunakan Supabase.",
 };
 
 export default function RootLayout({
@@ -18,9 +18,7 @@ export default function RootLayout({
     <html lang="id">
       <body>
         <Navbar />
-        <main style={{ paddingBottom: "calc(var(--nav-height) + 1rem)" }}>
-          {children}
-        </main>
+        <main>{children}</main>
         <BottomNav />
       </body>
     </html>
