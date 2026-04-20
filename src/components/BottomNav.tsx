@@ -9,6 +9,7 @@ const navItems = [
   { label: "About", href: "/about" },
   { label: "Portfolio", href: "/portfolio" },
   { label: "Blog", href: "/blog" },
+  { label: "Dashboard", href: "/dashboard" },
 ];
 
 export default function BottomNav() {
