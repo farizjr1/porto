@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import styles from "./page.module.css";
 import { Experience, PortfolioData, Profile, Skill } from "@/lib/portfolioData";
 import { createClient } from "@/lib/supabase/client";
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/config";
 
 const emptyPortfolio: PortfolioData = {
   profile: {
@@ -45,6 +46,7 @@ const createExperience = (experiences: Experience[]): Experience => ({
 });
 
 export default function DashboardPage() {
+  const supabaseConfigured = Boolean(getSupabaseUrl() && getSupabasePublishableKey());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [data, setData] = useState<PortfolioData>(emptyPortfolio);
@@ -52,7 +54,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [supabase] = useState(createClient);
+  const [supabase] = useState(() => (supabaseConfigured ? createClient() : null));
 
   useEffect(() => {
     const load = async () => {
@@ -73,6 +75,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkSession = async () => {
+      if (!supabase) {
+        setAuthReady(true);
+        return;
+      }
+
       const { data: authData } = await supabase.auth.getUser();
       const userEmail = authData.user?.email?.trim() ?? "";
 
@@ -86,6 +93,11 @@ export default function DashboardPage() {
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (!supabaseConfigured || !supabase) {
+      setStatus("Supabase Auth belum dikonfigurasi.");
+      return;
+    }
 
     const nextEmail = email.trim().toLowerCase();
     const nextPassword = password.trim();
@@ -115,6 +127,11 @@ export default function DashboardPage() {
   };
 
   const createAccount = async () => {
+    if (!supabaseConfigured || !supabase) {
+      setStatus("Supabase Auth belum dikonfigurasi.");
+      return;
+    }
+
     const nextEmail = email.trim().toLowerCase();
     const nextPassword = password.trim();
 
@@ -152,6 +169,11 @@ export default function DashboardPage() {
   };
 
   const logout = async () => {
+    if (!supabase) {
+      setStatus("Supabase Auth belum dikonfigurasi.");
+      return;
+    }
+
     await supabase.auth.signOut();
     setEmail("");
     setPassword("");
